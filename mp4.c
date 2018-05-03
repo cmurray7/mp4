@@ -19,11 +19,40 @@
  */
 static int get_inode_sid(struct inode *inode)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
-	return 0;
+	struct dentry *dentry;
+	int sid, rc, len;
+	char *context;
+
+	pr_info("Inside get_inode_sid");
+
+	if (!inode->i_op->getxattr) {
+		return 0;
+	}
+
+	context = kmalloc(len, GFP_kernel);
+	if (!context) {
+		pr_err("context buffer not allocated");
+		return 0;
+	}
+	
+	dentry = d_find_alias(inode);
+	if (dentry == NULL){
+		return -ENOENT;
+	}
+	
+	rc = inode->i_op->getxattr(dentry, XATTR_NAME_MP4, context, len);
+	len=rc;
+
+	if (rc == -ERANGE) {
+		dput(dentry);
+		pr_err("rc bigger than range")
+		return 0;
+	}
+	
+	dput(dentry);
+	context[rc] = '\0';
+	sid = __cred_ctx_to_sid(context);
+	return sid;
 }
 
 /**
@@ -35,10 +64,7 @@ static int get_inode_sid(struct inode *inode)
  */
 static int mp4_bprm_set_creds(struct linux_binprm *bprm)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
+	/* struct inode *inode; */
 	return 0;
 }
 
@@ -51,10 +77,14 @@ static int mp4_bprm_set_creds(struct linux_binprm *bprm)
  */
 static int mp4_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
+	struct mp4_security *sec_cred;
+	sec_cred = kmalloc(sizeof(struct mp4_security), gfp);
+	if (sec_cred == NULL) {
+		return -ENOMEM;
+	}
+	
+	sec_cred->mp4_flags = MP4_NO_ACCESS;
+	cred->security = sec_cred;
 	return 0;
 }
 
@@ -67,10 +97,8 @@ static int mp4_cred_alloc_blank(struct cred *cred, gfp_t gfp)
  */
 static void mp4_cred_free(struct cred *cred)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
+	cred->security = NULL;
+	kfree(cred->security);
 }
 
 /**
@@ -84,6 +112,10 @@ static void mp4_cred_free(struct cred *cred)
 static int mp4_cred_prepare(struct cred *new, const struct cred *old,
 			    gfp_t gfp)
 {
+	mp4_cred_alloc_blank(new, gfp);
+	if (old->security) {
+		new->security->mp4_flags = old->security->mp4_flags;
+	}	
 	return 0;
 }
 
