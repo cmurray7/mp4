@@ -19,11 +19,10 @@
  */
 static int get_inode_sid(struct inode *inode)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
-	return 0;
+	struct dentry *dentry;
+	dentry = d_find_alias(inode);
+	return inode_init_with_dentry(dentry, inode);
+
 }
 
 /**
@@ -35,10 +34,8 @@ static int get_inode_sid(struct inode *inode)
  */
 static int mp4_bprm_set_creds(struct linux_binprm *bprm)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
+	struct inode *inode = file_inode(bprm->file);
+	pr_info(&inode);
 	return 0;
 }
 
