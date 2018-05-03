@@ -64,7 +64,8 @@ static int get_inode_sid(struct inode *inode)
  */
 static int mp4_bprm_set_creds(struct linux_binprm *bprm)
 {
-	/* struct inode *inode; */
+	struct inode *inode = file_inode(bprm->file);
+	pr_info(&inode);
 	return 0;
 }
 
