@@ -26,7 +26,7 @@ static int get_inode_sid(struct inode *inode)
 	
 	len = 100; 
 
-	pr_info("Inside get_inode_sid");
+	pr_info("Inside get_inode_sid\n");
 
 	if (!inode->i_op->getxattr) {
 		return 0;
@@ -34,7 +34,7 @@ static int get_inode_sid(struct inode *inode)
 
 	context = kmalloc(len, GFP_KERNEL);
 	if (!context) {
-		pr_err("context buffer not allocated");
+		pr_err("context buffer not allocated\n");
 		return 0;
 	}
 	
@@ -48,13 +48,14 @@ static int get_inode_sid(struct inode *inode)
 
 	if (rc == -ERANGE) {
 		dput(dentry);
-		pr_err("rc bigger than range");
+		pr_err("rc bigger than range\n");
 		return 0;
 	}
 	
 	dput(dentry);
 	context[rc] = '\0';
 	sid = __cred_ctx_to_sid(context);
+	pr_info("got sid %d\n", sid);
 	return sid;
 	
 }
@@ -79,6 +80,7 @@ static int mp4_bprm_set_creds(struct linux_binprm *bprm)
 	if (sid == MP4_TARGET_SID) {
 		bprm->cred->security= new_label;
 	}
+	pr_info("completing bprm_set_creds\n");
 	return 0;
 }
 
@@ -98,6 +100,7 @@ static int mp4_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 	}
 	new_label->mp4_flags = MP4_NO_ACCESS;
 	cred->security = new_label;
+	pr_info("completed allocating blank credentials\n");
 	return 0;
 }
 
