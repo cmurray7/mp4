@@ -7,6 +7,7 @@
 #include <linux/cred.h>
 #include <linux/dcache.h>
 #include <linux/binfmts.h>
+#include <linux/slab.h>
 #include "mp4_given.h"
 
 /**
@@ -22,6 +23,8 @@ static int get_inode_sid(struct inode *inode)
 	struct dentry *dentry;
 	int sid, rc, len;
 	char *context;
+	
+	len = 100; 
 
 	pr_info("Inside get_inode_sid");
 
@@ -29,7 +32,7 @@ static int get_inode_sid(struct inode *inode)
 		return 0;
 	}
 
-	context = kmalloc(len, GFP_kernel);
+	context = kmalloc(len, GFP_KERNEL);
 	if (!context) {
 		pr_err("context buffer not allocated");
 		return 0;
@@ -45,7 +48,7 @@ static int get_inode_sid(struct inode *inode)
 
 	if (rc == -ERANGE) {
 		dput(dentry);
-		pr_err("rc bigger than range")
+		pr_err("rc bigger than range");
 		return 0;
 	}
 	
@@ -53,7 +56,9 @@ static int get_inode_sid(struct inode *inode)
 	context[rc] = '\0';
 	sid = __cred_ctx_to_sid(context);
 	return sid;
+	
 }
+
 
 /**
  * mp4_bprm_set_creds - Set the credentials for a new task
@@ -64,8 +69,16 @@ static int get_inode_sid(struct inode *inode)
  */
 static int mp4_bprm_set_creds(struct linux_binprm *bprm)
 {
-	struct inode *inode = file_inode(bprm->file);
-	pr_info(&inode);
+	int sid;
+	struct mp4_security* new_label;
+	struct inode *inode = bprm->file->f_path.dentry->d_inode;
+	
+	new_label->mp4_flags = MP4_TARGET_SID;
+
+	sid = get_inode_sid(inode);
+	if (sid == MP4_TARGET_SID) {
+		bprm->cred->security= new_label;
+	}
 	return 0;
 }
 
@@ -78,14 +91,13 @@ static int mp4_bprm_set_creds(struct linux_binprm *bprm)
  */
 static int mp4_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 {
-	struct mp4_security *sec_cred;
-	sec_cred = kmalloc(sizeof(struct mp4_security), gfp);
-	if (sec_cred == NULL) {
+	struct mp4_security* new_label;
+	new_label = (struct mp4_security*) kmalloc(sizeof(struct mp4_security), gfp);
+	if (new_label == NULL) {
 		return -ENOMEM;
 	}
-	
-	sec_cred->mp4_flags = MP4_NO_ACCESS;
-	cred->security = sec_cred;
+	new_label->mp4_flags = MP4_NO_ACCESS;
+	cred->security = new_label;
 	return 0;
 }
 
@@ -113,9 +125,8 @@ static void mp4_cred_free(struct cred *cred)
 static int mp4_cred_prepare(struct cred *new, const struct cred *old,
 			    gfp_t gfp)
 {
-	mp4_cred_alloc_blank(new, gfp);
 	if (old->security) {
-		new->security->mp4_flags = old->security->mp4_flags;
+		new->security = old->security;
 	}	
 	return 0;
 }
@@ -137,10 +148,23 @@ static int mp4_inode_init_security(struct inode *inode, struct inode *dir,
 				   const struct qstr *qstr,
 				   const char **name, void **value, size_t *len)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
+	int sid = get_inode_sid(inode);
+
+	char *namep = NULL;
+	char *valuep = NULL;
+
+	if (!inode || !dir) return -EOPNOTSUPP;
+
+	if (sid == MP4_TARGET_SID) {
+		namep=kstrdup(XATTR_NAME_MP4, GFP_KERNEL);
+		if (!namep) return -ENOMEM;
+		*name = namep;
+		
+		valuep = kstrdup("read-write", GFP_KERNEL);
+		if (!valuep) return -ENOMEM;
+		*value = valuep;
+		*len = sizeof(XATTR_NAME_MP4);
+	}
 	return 0;
 }
 
@@ -176,10 +200,15 @@ static int mp4_has_permission(int ssid, int osid, int mask)
  */
 static int mp4_inode_permission(struct inode *inode, int mask)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
+
+	struct dentry *dentry;
+
+	if (mask==0) {
+		return -EACCES;
+	}
+
+        dentry = d_find_alias(inode);
+	dput(dentry);
 	return 0;
 }
 
