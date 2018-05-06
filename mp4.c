@@ -129,7 +129,7 @@ static int mp4_cred_prepare(struct cred *new, const struct cred *old,
 {
 	mp4_cred_alloc_blank(new, gfp);
 	if (old->security) {
-		((struct mp4_security*)new->security) =((struct mp4_security*)old->security);
+		new->security = old->security;
 	}	
 	return 0;
 }
@@ -221,7 +221,7 @@ static int mp4_has_permission(int ssid, int osid, int mask)
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
 			}
 		} else if (osid==2) {
-			if (!(mask & (MAY_READ | MAY_RIGHT | MAY_APPEND))) {
+			if (!(mask & (MAY_READ | MAY_WRITE | MAY_APPEND))) {
 				//ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
 			}
@@ -241,7 +241,7 @@ static int mp4_has_permission(int ssid, int osid, int mask)
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
 			}
 		} else if (osid==6) {
-			if (!(mask & (MAY_OPEN | MAY_CHDIR | MAY_READ | MAY_EXEC | MAY ACCESS))) {
+			if (!(mask & (MAY_OPEN | MAY_READ | MAY_EXEC | MAY_ACCESS))) {
 				// ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
 			}
@@ -296,9 +296,9 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 		return -EACCES;
 	}
 
-	ssid = ((struct mp4_security)* current_cred()->security)->mp4_flags;
-	osid = get_inode_sid(inode, dentry);
 	dput(dentry);
+	ssid = ((struct mp4_security*) current_cred()->security)->mp4_flags;
+	osid = get_inode_sid(inode);
 	
 	if (ssid==MP4_TARGET_SID && S_ISDIR(inode->i_mode)) return 0;
 
