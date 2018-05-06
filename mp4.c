@@ -28,10 +28,6 @@ static int get_inode_sid(struct inode *inode)
 
 	pr_info("Inside get_inode_sid\n");
 
-	if (!inode->i_op->getxattr) {
-		return 0;
-	}
-
 	context = kmalloc(len, GFP_KERNEL);
 	if (!context) {
 		pr_err("context buffer not allocated\n");
@@ -53,9 +49,10 @@ static int get_inode_sid(struct inode *inode)
 	}
 	
 	dput(dentry);
-	context[rc] = '\0';
+	context[len] = '\0';
 	sid = __cred_ctx_to_sid(context);
 	pr_info("got sid %d\n", sid);
+	kfree(context);
 	return sid;
 	
 }
@@ -74,11 +71,13 @@ static int mp4_bprm_set_creds(struct linux_binprm *bprm)
 	struct mp4_security* new_label;
 	struct inode *inode = bprm->file->f_path.dentry->d_inode;
 	
+	if (!inode) return 0;	
+
 	new_label->mp4_flags = MP4_TARGET_SID;
 
 	sid = get_inode_sid(inode);
 	if (sid == MP4_TARGET_SID) {
-		bprm->cred->security= new_label;
+		bprm->cred->security = new_label;
 	}
 	pr_info("completing bprm_set_creds\n");
 	return 0;
@@ -128,8 +127,9 @@ static void mp4_cred_free(struct cred *cred)
 static int mp4_cred_prepare(struct cred *new, const struct cred *old,
 			    gfp_t gfp)
 {
+	mp4_cred_alloc_blank(new, gfp);
 	if (old->security) {
-		new->security = old->security;
+		((struct mp4_security*)new->security) =((struct mp4_security*)old->security);
 	}	
 	return 0;
 }
@@ -156,16 +156,24 @@ static int mp4_inode_init_security(struct inode *inode, struct inode *dir,
 	char *namep = NULL;
 	char *valuep = NULL;
 
-	if (!inode || !dir) return -EOPNOTSUPP;
+	if (!inode || !dir || !current_cred()) return -EOPNOTSUPP;
+	
+	if (!(struct mp4_security*)(current_cred()->security)) return -EOPNOTSUPP; 
 
 	if (sid == MP4_TARGET_SID) {
 		namep=kstrdup(XATTR_NAME_MP4, GFP_KERNEL);
 		if (!namep) return -ENOMEM;
 		*name = namep;
 		
-		valuep = kstrdup("read-write", GFP_KERNEL);
+		if (S_ISDIR(inode->i_mode)) {
+			valuep = kstrdup("dir-write", GFP_KERNEL);
+		} else {
+			valuep = kstrdup("read-write", GFP_KERNEL);
+		}
+	
 		if (!valuep) return -ENOMEM;
 		*value = valuep;
+
 		*len = sizeof(XATTR_NAME_MP4);
 	}
 	return 0;
@@ -183,10 +191,67 @@ static int mp4_inode_init_security(struct inode *inode, struct inode *dir,
  */
 static int mp4_has_permission(int ssid, int osid, int mask)
 {
-	/*
-	 * Add your code here
-	 * ...
-	 */
+	if (ssid == MP4_NO_ACCESS) {
+		if (osid == 0){
+			if (!(mask & MAY_ACCESS)) {
+				//ACESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (osid == 1 || osid == 2 || osid == 3) {
+			if (!(mask & MAY_READ)) {
+				//ACCESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (osid == 4) {
+			if (!(mask & (MAY_READ | MAY_EXEC))) {
+				//ACCESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (!(osid == 5 || osid == 6)) {
+			//ACCESS DENIED
+			pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+		}
+	} else if (ssid == MP4_TARGET_SID) {
+		if (osid == 0) {
+			//ACCESS DENIED
+			pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+		} else if (osid==1) {
+			if (!(mask & MAY_READ)){
+				//ACESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (osid==2) {
+			if (!(mask & (MAY_READ | MAY_RIGHT | MAY_APPEND))) {
+				//ACCESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (osid==3) {
+			if (!(mask & (MAY_WRITE | MAY_APPEND))) {
+				//ACCESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (osid==4) {
+			if (!(mask & (MAY_READ | MAY_EXEC))) {
+				//ACCESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (osid==5) {
+			if (!(mask & (MAY_READ | MAY_EXEC | MAY_ACCESS))) {
+				//ACCESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else if (osid==6) {
+			if (!(mask & (MAY_OPEN | MAY_CHDIR | MAY_READ | MAY_EXEC | MAY ACCESS))) {
+				// ACCESS DENIED
+				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			}
+		} else {
+			// ACCESS DENIED
+			pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+		}
+	} else {
+		pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+	}
 	return 0;
 }
 
@@ -205,13 +270,41 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 {
 
 	struct dentry *dentry;
+	int ssid, osid, permission;
+	char* path;
 
 	if (mask==0) {
 		return -EACCES;
 	}
 
         dentry = d_find_alias(inode);
+	if (!dentry) {
+		dput(dentry);
+		return -EACCES;
+	}
+
+	path = kmalloc(100, GFP_KERNEL);
+	dentry_path(dentry, path, 100);
+	if (mp4_should_skip_path(path)) {
+		kfree(path);
+		dput(dentry);
+		return -EACCES;
+	}
+	
+	if(!current_cred() || !(struct mp4_security*)(current_cred()->security)) {
+		dput(dentry);
+		return -EACCES;
+	}
+
+	ssid = ((struct mp4_security)* current_cred()->security)->mp4_flags;
+	osid = get_inode_sid(inode, dentry);
 	dput(dentry);
+	
+	if (ssid==MP4_TARGET_SID && S_ISDIR(inode->i_mode)) return 0;
+
+	permission = mp4_has_permission(ssid, osid, mask);
+	/*pr_info("SSID: %d\t OSID:%d\tmask:%d", ssid, osid, mask);*/ 
+	
 	return 0;
 }
 
