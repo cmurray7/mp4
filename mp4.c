@@ -196,61 +196,74 @@ static int mp4_has_permission(int ssid, int osid, int mask)
 			if (!(mask & MAY_ACCESS)) {
 				//ACESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;
 			}
 		} else if (osid == 1 || osid == 2 || osid == 3) {
 			if (!(mask & MAY_READ)) {
 				//ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;		
 			}
 		} else if (osid == 4) {
 			if (!(mask & (MAY_READ | MAY_EXEC))) {
 				//ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;
 			}
 		} else if (!(osid == 5 || osid == 6)) {
 			//ACCESS DENIED
 			pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			return -EACCES;
 		}
 	} else if (ssid == MP4_TARGET_SID) {
 		if (osid == 0) {
 			//ACCESS DENIED
 			pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			return -EACCES;
 		} else if (osid==1) {
 			if (!(mask & MAY_READ)){
 				//ACESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;
 			}
 		} else if (osid==2) {
 			if (!(mask & (MAY_READ | MAY_WRITE | MAY_APPEND))) {
 				//ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;
 			}
 		} else if (osid==3) {
 			if (!(mask & (MAY_WRITE | MAY_APPEND))) {
 				//ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;
 			}
 		} else if (osid==4) {
 			if (!(mask & (MAY_READ | MAY_EXEC))) {
 				//ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;
 			}
 		} else if (osid==5) {
 			if (!(mask & (MAY_READ | MAY_EXEC | MAY_ACCESS))) {
 				//ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;
 			}
 		} else if (osid==6) {
 			if (!(mask & (MAY_OPEN | MAY_READ | MAY_EXEC | MAY_ACCESS))) {
 				// ACCESS DENIED
 				pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+				return -EACCES;	
 			}
 		} else {
 			// ACCESS DENIED
 			pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+			return -EACCES;
 		}
 	} else {
 		pr_info("Access denied for ssid %d, osid %d, mask %d\n", ssid, osid, mask);
+		return -EACCES;
 	}
 	return 0;
 }
