@@ -284,7 +284,7 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 
 	struct dentry *dentry;
 	int ssid, osid, permission;
-	char* path;
+	char* path, raw;
 
 	if (mask==0) {
 		return -EACCES;
@@ -296,10 +296,22 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 		return -EACCES;
 	}
 
-	path = kmalloc(100, GFP_KERNEL);
-	dentry_path(dentry, path, 100);
-	if (mp4_should_skip_path(path)) {
+	path = kmalloc(4096, GFP_KERNEL);
+	if (!path) {
+		dput(dentry);
+		return 0;
+	}
+
+	raw = dentry_path_raw(dentry, path, 4096);
+	if (IS_ERR(raw)) {
 		kfree(path);
+		path = NULL;
+		dput(dentry);
+		return 0;
+	}
+	if (mp4_should_skip_path(raw)) {
+		kfree(path);
+		path = NULL;
 		dput(dentry);
 		return -EACCES;
 	}
@@ -317,7 +329,8 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 
 	permission = mp4_has_permission(ssid, osid, mask);
 	/*pr_info("SSID: %d\t OSID:%d\tmask:%d", ssid, osid, mask);*/ 
-	
+	kfree(path);
+	path = NULL;	
 	return 0;
 }
 
