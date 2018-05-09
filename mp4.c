@@ -284,7 +284,7 @@ static int mp4_inode_permission(struct inode *inode, int mask)
 
 	struct dentry *dentry;
 	int ssid, osid, permission;
-	char* path, raw;
+	char *path, *raw;
 
 	if (mask==0) {
 		return -EACCES;
