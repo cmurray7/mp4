@@ -30,3 +30,10 @@ When I was unable to reboot into my custom kernel, I tried to move the problem o
 
 ### Test Cases
 I have completed mp4_test.perm and mp4_test.perm.unload but was unable to use them due to my inability to boot into my custom kernel.
+
+# After extension
+I was able to boot into my custom kernel after VSphere was back online.
+I tried debugging for a while more, but kept recieving the same message:
+![nine](./screencaps/kernel_panic.png?raw=true "Kernel Panic")
+
+the code in the zip is my final version, which still incurs kernel panic.
